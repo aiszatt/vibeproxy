@@ -11,6 +11,19 @@ class LinuxServerManager {
     
     private let processQueue = DispatchQueue(label: "io.automaze.vibeproxy.server-process", qos: .userInitiated)
     
+    /// Timing constants for authentication flows
+    /// These delays match the behavior in the macOS version (ServerManager.swift)
+    /// and allow time for browser OAuth flows to complete before providing input.
+    private enum AuthTiming {
+        /// Delay before sending newline for Gemini project selection (seconds)
+        /// Gemini prompts for project selection; this delay allows the browser to open
+        static let geminiProjectSelectDelay: TimeInterval = 3.0
+        
+        /// Delay before sending email for Qwen login (seconds)
+        /// Qwen OAuth completes in browser, then requires email input
+        static let qwenEmailInputDelay: TimeInterval = 10.0
+    }
+    
     init(binaryPath: String, configPath: String, port: Int, verbose: Bool = false) {
         self.binaryPath = binaryPath
         self.configPath = configPath
@@ -177,9 +190,9 @@ class LinuxServerManager {
         do {
             try authProcess.run()
             
-            // For Qwen login, send email after a delay
+            // For Qwen login, send email after a delay to allow OAuth completion
             if command == "-qwen-login", let email = email {
-                DispatchQueue.global().asyncAfter(deadline: .now() + 10.0) {
+                DispatchQueue.global().asyncAfter(deadline: .now() + AuthTiming.qwenEmailInputDelay) {
                     if authProcess.isRunning {
                         if let data = "\(email)\n".data(using: .utf8) {
                             try? inputPipe.fileHandleForWriting.write(contentsOf: data)
@@ -190,7 +203,7 @@ class LinuxServerManager {
             
             // For Gemini login, send newline to accept default project
             if command == "-login" {
-                DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) {
+                DispatchQueue.global().asyncAfter(deadline: .now() + AuthTiming.geminiProjectSelectDelay) {
                     if authProcess.isRunning {
                         if let data = "\n".data(using: .utf8) {
                             try? inputPipe.fileHandleForWriting.write(contentsOf: data)

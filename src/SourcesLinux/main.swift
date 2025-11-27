@@ -3,6 +3,10 @@ import ArgumentParser
 import NIO
 import NIOHTTP1
 
+// Global references for signal handling cleanup
+private var globalServerManager: LinuxServerManager?
+private var globalThinkingProxy: LinuxThinkingProxy?
+
 /// VibeProxy - Linux CLI Version
 /// A proxy server that enables using AI subscriptions (Claude, Codex, Gemini, etc.) with AI coding tools.
 @main
@@ -64,6 +68,10 @@ struct VibeProxyCommand: ParsableCommand {
             verbose: verbose
         )
         
+        // Store global references for signal handler cleanup
+        globalServerManager = serverManager
+        globalThinkingProxy = thinkingProxy
+        
         // Setup signal handlers for graceful shutdown
         setupSignalHandlers()
         
@@ -121,10 +129,14 @@ struct VibeProxyCommand: ParsableCommand {
     }
     
     private func findResourcePath() -> String? {
+        // Get executable directory using URL for safer path handling
+        let executablePath = CommandLine.arguments[0]
+        let executableDir = URL(fileURLWithPath: executablePath).deletingLastPathComponent().path
+        
         // Check common locations for resources
         let possiblePaths = [
             // Same directory as executable
-            CommandLine.arguments[0].replacingOccurrences(of: "/vibeproxy", with: ""),
+            executableDir,
             // Standard Linux installation paths
             "/usr/local/share/vibeproxy",
             "/usr/share/vibeproxy",
@@ -152,12 +164,18 @@ struct VibeProxyCommand: ParsableCommand {
         // Handle SIGINT (Ctrl+C)
         signal(SIGINT) { _ in
             print("\n🛑 Shutting down...")
+            // Gracefully stop servers before exit
+            globalThinkingProxy?.stop()
+            globalServerManager?.stop()
             Foundation.exit(0)
         }
         
         // Handle SIGTERM
         signal(SIGTERM) { _ in
             print("\n🛑 Received SIGTERM, shutting down...")
+            // Gracefully stop servers before exit
+            globalThinkingProxy?.stop()
+            globalServerManager?.stop()
             Foundation.exit(0)
         }
     }

@@ -328,10 +328,15 @@ private final class ThinkingProxyHandler: ChannelInboundHandler {
     }
     
     /// Forward request to ampcode.com
+    /// 
+    /// NOTE: This feature is not implemented in the Linux version because it requires
+    /// HTTPS support via NIOSSL. The macOS version uses the Network framework which
+    /// has built-in TLS support.
+    /// 
+    /// To implement this feature, add the NIOSSL package dependency and use
+    /// NIOSSLClientHandler to create a TLS-wrapped connection to ampcode.com:443.
     private func forwardToAmp(context: ChannelHandlerContext, head: HTTPRequestHead, body: ByteBuffer?, ampPath: String) {
-        // For now, return a simple error message since we'd need NIOSSL for HTTPS
-        // In a production environment, you'd use NIOSSL to connect to ampcode.com:443
-        sendError(context: context, status: .badGateway, message: "Amp API forwarding requires HTTPS (not implemented in Linux version)")
+        sendError(context: context, status: .badGateway, message: "Amp API forwarding requires HTTPS (use the macOS version for Amp CLI support)")
     }
     
     private func sendError(context: ChannelHandlerContext, status: HTTPResponseStatus, message: String) {
